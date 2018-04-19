@@ -9,36 +9,103 @@ let config = {
 };
 firebase.initializeApp(config);
 
-let database = firebase.database();
-let ref = database.ref('walkingDead');
+
+//AUTH
+const uiConfig = {
+    signInSuccessUrl: 'index.html',
+    signInOptions: [
+        firebase.auth.EmailAuthProvider.PROVIDER_ID,
+        firebase.auth.GoogleAuthProvider.PROVIDER_ID,
+    ],
+    // Terms of service url.
+    tosUrl: 'http://localhost:8080/cgu' // conditions générales d'utilisation
+};
+// Initialize the FirebaseUI Widget using Firebase.
+const ui = new firebaseui.auth.AuthUI(firebase.auth());
+// The start method will wait until the DOM is loaded.
+ui.start('#firebaseui-auth-container', uiConfig);
 
 
-// Attach an asynchronous callback to read the data at our posts reference
+function initApp(){
+    firebase.auth().onAuthStateChanged(function (user) {
+        document.getElementById('firebaseui-auth-container').style.display = 'block';
+        if (user) {
+            document.getElementById('firebaseui-auth-container').style.display = 'none';
+            const displayName = user.displayName;
+            const email = user.email;
+            const emailVerified = user.emailVerified;
+            const photoURL = user.photoURL;
+            const uid = user.uid;
+            const phoneNumber = user.phoneNumber;
+            const providerData = user.providerData;
 
-ref.on("value", function (snapshot) {
-    let i = 0;
-    let keys = Object.keys(snapshot.val());
-    document.getElementById("character").innerHTML = "";
-    while (i < keys.length) {
-        document.getElementById("character").innerHTML += "<li>" + snapshot.val()[keys[i]].name + "</li>";
-        i++;
-    }
+            user.getIdToken().then((accessToken) => {
+                document.getElementById('sign-in-status').textContent = 'Signed in';
+                document.getElementById('sign-in').textContent = 'Sign out';
+            });
 
-    /* console.log(Object.keys(snapshot.val())); */
-    /* document.getElementById("character").innerHTML = snapshot.val()[1].name; */
-    console.log(snapshot.val());
-},
-    function (errorObject) {
-        console.log("The read failed: " + errorObject.code);
+        } else {
+            document.getElementById('sign-in-status').textContent = 'Signed out';
+            document.getElementById('sign-in').textContent = 'Sign in';
+        }
+        if (user) {
+            //WalckingDead
+            let database = firebase.database();
+            let myId = user.uid;
+            ref = database.ref('walkingDead/' + myId);
+            console.log(myId)
+
+            ref.on("value", function (snapshot) {
+                let i = 0;
+                if (snapshot.val() != null) {
+                    let keys = Object.keys(snapshot.val());
+                    document.getElementById("character").innerHTML = "";
+                    while (i < keys.length) {
+                        document.getElementById("character").innerHTML += "<li>" + snapshot.val()[keys[i]].name + "</li>";
+                        i++;
+                    }
+                } else {
+                    creatCharacter("Carle Grimes");
+                    creatCharacter("Rick Grimes");
+                    creatCharacter("Negan");
+                    creatCharacter("Michonne");
+                    creatCharacter("Glenn");
+                    creatCharacter("Daryl Dixon");
+                    creatCharacter("Andréa");
+                    creatCharacter("Gareth");
+                }
+                console.log(snapshot.val());
+            }, function (errorObject) {
+                console.log("The read failed: " + errorObject.code);
+            });
+            document.getElementById("notAuth").style.display = "block";            
+        }
+    }, (error) => { // gestion de erreur de connexion
+        console.error(error);
     });
+}
+let database = firebase.database();
+let ref;
 
 function myFunction() {
     console.log(document.getElementById("myForm").value);
-    let character = {
-        name: document.getElementById("myForm").value,
-    };
-
-    ref.push(character);
-    /* document.getElementById("character").innerHTML; */
-    /* ref.push("myForm"); */
+    creatCharacter(document.getElementById("myForm").value);
 }
+
+function creatCharacter(name) {
+    let character = {
+        name: name,
+    };
+    ref.push(character);
+}
+
+initApp();
+
+function logOut() {
+    firebase.auth().signOut().then(function () {
+        // Sign-out successful.
+    }).catch(function (error) {
+        // An error happened.
+    });
+}
+
